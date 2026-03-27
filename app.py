@@ -61,7 +61,33 @@ def health():
 def dashboard():
     try:
         leads = get_all_leads()
-        return render_template("dashboard.html", leads=leads)
+
+        total_leads = len(leads)
+        hot_leads = len([l for l in leads if l.get("status") == "Hot"])
+        warm_leads = len([l for l in leads if l.get("status") == "Warm"])
+        cold_leads = len([l for l in leads if l.get("status") == "Cold"])
+
+        scores = [int(l.get("score", 0)) for l in leads if l.get("score") is not None]
+        avg_score = round(sum(scores) / len(scores), 1) if scores else 0
+
+        needs_action = [
+            l for l in leads
+            if l.get("next_action_type") or l.get("status") == "Hot"
+        ]
+
+        recent_leads = leads[:5]
+
+        return render_template(
+            "dashboard.html",
+            leads=leads,
+            total_leads=total_leads,
+            hot_leads=hot_leads,
+            warm_leads=warm_leads,
+            cold_leads=cold_leads,
+            avg_score=avg_score,
+            needs_action=needs_action,
+            recent_leads=recent_leads,
+        )
     except Exception as e:
         return f"Error loading dashboard: {str(e)}", 500
 
