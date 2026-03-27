@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+    th { background: #f3f3f3; }
+    a { text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h2>Lead Dashboard</h2>
+
+  <p><a href="/">+ Add New Lead</a></p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Company</th>
+        <th>Email</th>
+        <th>Intent</th>
+        <th>Score</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Reason</th>
+        <th>Followup</th>
+        <th>Thread</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for lead in leads %}
+      <tr>
+        <td>{{ lead.id }}</td>
+        <td>{{ lead.name }}</td>
+        <td>{{ lead.company }}</td>
+        <td>{{ lead.email }}</td>
+        <td>{{ lead.intent }}</td>
+        <td>{{ lead.score }}</td>
+        <td>{{ lead.priority }}</td>
+        <td>{{ lead.status }}</td>
+        <td>{{ lead.reason }}</td>
+        <td>{{ lead.followup }}</td>
+        <td><a href="/lead/{{ lead.id }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

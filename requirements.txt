@@ -1,0 +1,10 @@
+flask
+pandas
+requests
+schedule
+python-dotenv
+supabase
+sendgrid
+gunicorn
+scikit-learn
+numpy
