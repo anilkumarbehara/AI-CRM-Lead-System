@@ -1,12 +1,11 @@
 import os
 import re
 from datetime import datetime, timedelta, timezone
-from llm_agent import analyze_with_openai
 
 from dotenv import load_dotenv
 from flask import Flask, request, render_template, redirect, url_for, jsonify
 
-from llm_agent import analyze_with_openai
+from llm_agent import analyze_lead_with_llm, analyze_reply_action
 from email_sender import send_email
 from supabase_db import (
     insert_lead,
@@ -42,9 +41,9 @@ def create_initial_task(lead_id: int, analysis: dict, company: str):
         "title": analysis.get("task_title", "Follow up with lead"),
         "description": analysis.get(
             "task_description",
-            f"Follow up with lead {lead_id}"
+            f"Follow up with lead from {company}."
         ),
-        "status": "open",
+        "status": "open"
     })
 
 
@@ -95,14 +94,18 @@ def submit_lead():
         email = request.form.get("email", "").strip()
         source = request.form.get("source", "Website").strip()
         description = request.form.get("description", "").strip()
+        phone = request.form.get("phone", "").strip()
+        ocr_text = request.form.get("ocr_text", "").strip()
 
-        analysis = analyze_with_openai(description)
+        analysis = analyze_lead_with_llm(description)
 
         lead_data = {
-            "name": name ,
-            "company": company ,
+            "name": name or None,
+            "company": company or "Unknown Company",
             "job_title": job_title or None,
             "email": email or None,
+            "phone": phone or None,
+            "ocr_text": ocr_text or None,
             "source": source or "Website",
             "description": description or None,
             "intent": analysis.get("intent", "Interested lead"),
@@ -112,7 +115,7 @@ def submit_lead():
             "status": analysis.get("status", "Warm"),
             "email_subject": analysis.get("email_subject", "Thanks for reaching out"),
             "email_body": analysis.get("reply_message", "Thank you for contacting us."),
-            "next_action": analysis.get("next_action", "send_followup"),
+            "next_action": analysis.get("next_action", "Send follow-up"),
             "next_action_type": analysis.get("next_action_type", "send_followup"),
             "followup": (
                 datetime.now(timezone.utc)
@@ -170,31 +173,30 @@ def inbound_email():
             "thread_key": f"lead-{lead_id}",
         })
 
-        action = analyze_with_openai("email_body", body)
+        action = analyze_reply_action(body)
 
         update_lead(lead_id, {
             "intent": action.get("intent", "Interested lead"),
+            "score": int(action.get("score", 60)),
             "priority": action.get("priority", "medium"),
             "reason": action.get("reason", "Inbound reply received"),
             "status": action.get("status", "Warm"),
+            "next_action": action.get("next_action", "Send follow-up"),
+            "next_action_type": action.get("next_action_type", "send_followup"),
             "updated_at": utc_now_iso(),
         })
 
         insert_task({
             "lead_id": lead_id,
-            "title": action.get("task_title", "Follow up"),
-            "description": action.get("task_description", "Review inbound reply"),
-            "status": "open",
-            "priority": action.get("priority", "medium"),
-            "due_at": None,
-            "created_by": "ai",
-            "assigned_to": "Sales Team",
+            "title": action.get("task_title", "Review inbound reply"),
+            "description": action.get("task_description", "Review inbound reply and continue conversation."),
+            "status": "open"
         })
 
         if action.get("auto_reply", False):
             send_email(
                 to_email=from_addr,
-                subject=f"Re: {subject}",
+                subject=action.get("email_subject", f"Re: {subject}"),
                 body=action.get("reply_message", "Thank you for your message."),
                 lead_id=lead_id,
             )
@@ -206,6 +208,70 @@ def inbound_email():
         return f"Error: {str(e)}", 500
 
 
+@app.route("/run-action/<int:lead_id>", methods=["POST"])
+def run_action(lead_id: int):
+    try:
+        lead = get_lead_by_id(lead_id)
+        if not lead:
+            return "Lead not found", 404
+
+        action_type = lead.get("next_action_type")
+        email = lead.get("email")
+        company = lead.get("company") or "your team"
+
+        if action_type == "send_pricing":
+            if email:
+                send_email(
+                    to_email=email,
+                    subject="Pricing details",
+                    body="Thank you for your interest. Please find our pricing details. Let us know if you would like a quotation call.",
+                    lead_id=lead_id,
+                )
+
+        elif action_type == "schedule_demo":
+            if email:
+                send_email(
+                    to_email=email,
+                    subject="Schedule a demo",
+                    body="We would be happy to schedule a demo. Please share your available time slots.",
+                    lead_id=lead_id,
+                )
+
+        elif action_type == "send_followup":
+            if email:
+                send_email(
+                    to_email=email,
+                    subject="Follow-up from our team",
+                    body=f"Hello, this is a follow-up regarding your interest in our solution for {company}. Please let us know how we can help further.",
+                    lead_id=lead_id,
+                )
+
+        elif action_type == "close_lead":
+            update_lead(lead_id, {
+                "status": "Cold",
+                "updated_at": utc_now_iso(),
+            })
+
+        else:
+            return "Unknown action type", 400
+
+        insert_task({
+            "lead_id": lead_id,
+            "title": f"Executed action: {action_type}",
+            "description": f"AI recommended action '{action_type}' was executed.",
+            "status": "open"
+        })
+
+        update_lead(lead_id, {
+            "updated_at": utc_now_iso(),
+        })
+
+        return redirect(url_for("lead_detail", lead_id=lead_id))
+
+    except Exception as e:
+        return f"Error running action: {str(e)}", 500
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
-    app.run(host="0.0.0.0", port=port) 
+    app.run(host="0.0.0.0", port=port)
