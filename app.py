@@ -363,6 +363,22 @@ def api_create_lead():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+@app.route("/api/leads/<int:lead_id>/messages", methods=["GET"])
+def api_get_messages_by_lead(lead_id):
+    try:
+        lead = get_lead_by_id(lead_id)
+        if not lead:
+            return jsonify({"error": "Lead not found"}), 404
+
+        messages = get_messages_by_lead(lead_id)
+        return jsonify({
+            "lead_id": lead_id,
+            "count": len(messages),
+            "messages": messages
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500 
 
 @app.route("/api/leads/<int:lead_id>", methods=["GET"])
 def api_get_lead(lead_id):
