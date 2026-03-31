@@ -295,7 +295,7 @@ def run_action(lead_id: int):
 
     except Exception as e:
         return f"Error running action: {str(e)}", 500
-    @app.route("/api/leads", methods=["POST"])
+@app.route("/api/leads", methods=["POST"])
 def api_create_lead():
     try:
         data = request.get_json()
