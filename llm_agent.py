@@ -1,9 +1,9 @@
 import os
 import json
+import re
 import requests
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 
 def _fallback_result(reason="OpenAI failed"):
     return {
@@ -23,21 +23,14 @@ def _fallback_result(reason="OpenAI failed"):
     }
 
 
-def _parse_json_safely(text_output: str):
-    text_output = text_output.strip()
-
-    if text_output.startswith("```"):
-        text_output = text_output.replace("```json", "").replace("```", "").strip()
-
-    start = text_output.find("{")
-    end = text_output.rfind("}")
-
-    if start != -1 and end != -1 and end > start:
-        text_output = text_output[start:end + 1]
-
-    return json.loads(text_output)
-
-
+def _parse_json_safely(text):
+    try:
+        return json.loads(text)
+    except:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        return {}
 def analyze_with_openai(text):
     if not OPENAI_API_KEY:
         return _fallback_result("OPENAI_API_KEY missing")

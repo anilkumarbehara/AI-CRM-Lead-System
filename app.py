@@ -25,7 +25,6 @@ app = Flask(__name__)
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-
 def extract_lead_id_from_address(address_text: str):
     if not address_text:
         return None
@@ -45,7 +44,6 @@ def create_initial_task(lead_id: int, analysis: dict, company: str):
         ),
         "status": "open"
     })
-
 
 @app.route("/", methods=["GET"])
 def home():
